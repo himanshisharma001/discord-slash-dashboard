@@ -81,8 +81,61 @@ export async function sendFollowUp(
   const url =
     `${discordApi}/webhooks/${applicationId}/${interactionToken}`;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const response = await fetch(url, {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  console.log(
+    "Discord follow-up response status:",
+    response.status
+  );
+
+  if (response.ok) {
+    return response;
+  }
+
+  const text = await response.text();
+
+  if (response.status === 429) {
+    let retryAfterSeconds = 2;
+
+    try {
+      const data = JSON.parse(text);
+
+      if (typeof data.retry_after === "number") {
+        retryAfterSeconds = data.retry_after;
+      }
+    } catch {
+      const headerValue =
+        response.headers.get("Retry-After");
+
+      const parsedHeader =
+        Number(headerValue);
+
+      if (Number.isFinite(parsedHeader)) {
+        retryAfterSeconds = parsedHeader;
+      }
+    }
+
+    // Never keep a Discord interaction waiting for hours.
+    const waitSeconds = Math.min(
+      Math.max(retryAfterSeconds, 1),
+      5
+    );
+
+    console.log(
+      `Discord rate limited follow-up. Waiting ${waitSeconds} seconds before one retry.`
+    );
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, waitSeconds * 1000)
+    );
+
+    const retryResponse = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -91,35 +144,25 @@ export async function sendFollowUp(
     });
 
     console.log(
-      "Discord follow-up response status:",
-      response.status
+      "Discord follow-up retry response status:",
+      retryResponse.status
     );
 
-    if (response.ok) {
-      return response;
+    if (retryResponse.ok) {
+      return retryResponse;
     }
 
-    const text = await response.text();
-
-    if (response.status === 429 && attempt === 1) {
-      const retryAfter =
-        Number(response.headers.get("Retry-After")) || 2;
-
-      console.log(
-        `Discord rate limited follow-up. Retrying after ${retryAfter} seconds...`
-      );
-
-      await new Promise((resolve) =>
-        setTimeout(resolve, retryAfter * 1000)
-      );
-
-      continue;
-    }
+    const retryText =
+      await retryResponse.text();
 
     throw new Error(
-      `Discord follow-up error ${response.status}: ${text}`
+      `Discord follow-up retry failed ${retryResponse.status}: ${retryText}`
     );
   }
+
+  throw new Error(
+    `Discord follow-up error ${response.status}: ${text}`
+  );
 }
 
 export async function sendChannelMessage(channelId, content) {
