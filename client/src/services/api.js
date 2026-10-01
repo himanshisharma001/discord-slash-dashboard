@@ -1,3 +1,5 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
 async function request(
   path,
   {
@@ -6,13 +8,12 @@ async function request(
   } = {}
 ) {
   const response = await fetch(
-    `/api${path}`,
+    `${API_BASE_URL}/api${path}`,
     {
       method,
       credentials: "include",
       headers: {
-        "Content-Type":
-          "application/json",
+        "Content-Type": "application/json",
       },
       body: body
         ? JSON.stringify(body)
