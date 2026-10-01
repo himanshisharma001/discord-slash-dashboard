@@ -10,7 +10,7 @@ console.log("APPLICATION ID:", env.discordApplicationId);
 console.log("BOT TOKEN LOADED:", Boolean(env.discordBotToken));
 console.log("=================");
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${PORT}`);
 
   registerCommands()
