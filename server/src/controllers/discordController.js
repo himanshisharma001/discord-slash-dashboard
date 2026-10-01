@@ -1,4 +1,7 @@
-import { InteractionType, InteractionResponseType } from "discord-interactions";
+import {
+  InteractionType,
+  InteractionResponseType,
+} from "discord-interactions";
 
 import pool from "../db/db.js";
 import { env } from "../config/env.js";
@@ -53,7 +56,10 @@ export async function handleDiscordInteraction(req, res) {
   // --------------------------------------------------
 
   if (interaction.type !== InteractionType.APPLICATION_COMMAND) {
-    console.log("Unsupported interaction type:", interaction.type);
+    console.log(
+      "Unsupported interaction type:",
+      interaction.type,
+    );
 
     return res.status(400).json({
       error: "Unsupported interaction type",
@@ -72,7 +78,10 @@ export async function handleDiscordInteraction(req, res) {
   const guildId = interaction.guild_id || null;
   const channelId = interaction.channel_id || null;
 
-  const userId = interaction.member?.user?.id || interaction.user?.id || null;
+  const userId =
+    interaction.member?.user?.id ||
+    interaction.user?.id ||
+    null;
 
   const username =
     interaction.member?.user?.username ||
@@ -93,6 +102,10 @@ export async function handleDiscordInteraction(req, res) {
     commandText = textOption?.value || "";
   }
 
+  // ==================================================
+  // /status
+  // ==================================================
+
   if (commandName === "status") {
     console.log("Sending /status response immediately...");
 
@@ -103,10 +116,7 @@ export async function handleDiscordInteraction(req, res) {
       },
     });
 
-    // ------------------------------------------------
-    // Database work happens AFTER Discord response
-    // ------------------------------------------------
-
+    // Database work happens after Discord response
     processStatus({
       interaction,
       interactionId,
@@ -115,7 +125,10 @@ export async function handleDiscordInteraction(req, res) {
       userId,
       username,
     }).catch((error) => {
-      console.error("Status background processing failed:", error);
+      console.error(
+        "Status background processing failed:",
+        error,
+      );
     });
 
     return;
@@ -124,21 +137,19 @@ export async function handleDiscordInteraction(req, res) {
   // ==================================================
   // /report
   // ==================================================
-  //
-  // Send a deferred response immediately.
-  // ==================================================
 
   if (commandName === "report") {
-    console.log("Sending /report deferred response immediately...");
+    console.log(
+      "Sending /report deferred response immediately...",
+    );
 
     res.json({
-      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      type:
+        InteractionResponseType
+          .DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
     });
 
-    // ------------------------------------------------
     // Slow report processing happens afterwards
-    // ------------------------------------------------
-
     processReport(interaction, {
       interactionId,
       guildId,
@@ -147,7 +158,10 @@ export async function handleDiscordInteraction(req, res) {
       username,
       commandText,
     }).catch((error) => {
-      console.error("Report background processing failed:", error);
+      console.error(
+        "Report background processing failed:",
+        error,
+      );
     });
 
     return;
@@ -160,7 +174,9 @@ export async function handleDiscordInteraction(req, res) {
   console.log("Unknown Discord command:", commandName);
 
   return res.json({
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    type:
+      InteractionResponseType
+        .CHANNEL_MESSAGE_WITH_SOURCE,
     data: {
       content: "Unknown command.",
     },
@@ -171,7 +187,11 @@ export async function handleDiscordInteraction(req, res) {
 // Create / Find Server
 // ==================================================
 
-async function getOrCreateServer({ guildId, guildName, channelId }) {
+async function getOrCreateServer({
+  guildId,
+  guildName,
+  channelId,
+}) {
   if (!guildId) {
     return null;
   }
@@ -196,10 +216,15 @@ async function getOrCreateServer({ guildId, guildName, channelId }) {
       discord_guild_name = EXCLUDED.discord_guild_name
     RETURNING id
     `,
-    [guildId, guildName || "Discord Server", channelId],
+    [
+      guildId,
+      guildName || "Discord Server",
+      channelId,
+    ],
   );
 
-  const serverId = serverResult.rows[0]?.id || null;
+  const serverId =
+    serverResult.rows[0]?.id || null;
 
   if (!serverId) {
     return null;
@@ -288,8 +313,12 @@ async function saveCommandLog({
 
     return true;
   } catch (error) {
+    // PostgreSQL unique constraint violation
     if (error.code === "23505") {
-      console.log("Duplicate Discord interaction:", interactionId);
+      console.log(
+        "Duplicate Discord interaction:",
+        interactionId,
+      );
 
       return false;
     }
@@ -311,7 +340,9 @@ async function processStatus({
   username,
 }) {
   try {
-    console.log("Starting background /status processing...");
+    console.log(
+      "Starting background /status processing...",
+    );
 
     // ------------------------------------------------
     // Find/create server
@@ -319,7 +350,9 @@ async function processStatus({
 
     const serverId = await getOrCreateServer({
       guildId,
-      guildName: interaction.guild?.name || "Discord Server",
+      guildName:
+        interaction.guild?.name ||
+        "Discord Server",
       channelId,
     });
 
@@ -359,7 +392,10 @@ async function processStatus({
         [serverId],
       );
 
-      if (configResult.rows.length > 0 && !configResult.rows[0].enabled) {
+      if (
+        configResult.rows.length > 0 &&
+        !configResult.rows[0].enabled
+      ) {
         await pool.query(
           `
           UPDATE command_logs
@@ -369,7 +405,11 @@ async function processStatus({
             processed_at = CURRENT_TIMESTAMP
           WHERE interaction_id = $3
           `,
-          ["failed", "Status command is disabled", interactionId],
+          [
+            "failed",
+            "Status command is disabled",
+            interactionId,
+          ],
         );
 
         console.log("/status is disabled.");
@@ -391,12 +431,21 @@ async function processStatus({
         processed_at = CURRENT_TIMESTAMP
       WHERE interaction_id = $3
       `,
-      ["processed", "Status command processed", interactionId],
+      [
+        "processed",
+        "Status command processed",
+        interactionId,
+      ],
     );
 
-    console.log("/status background processing completed.");
+    console.log(
+      "/status background processing completed.",
+    );
   } catch (error) {
-    console.error("/status processing error:", error);
+    console.error(
+      "/status processing error:",
+      error,
+    );
 
     try {
       await pool.query(
@@ -408,10 +457,17 @@ async function processStatus({
           processed_at = CURRENT_TIMESTAMP
         WHERE interaction_id = $3
         `,
-        ["failed", error.message, interactionId],
+        [
+          "failed",
+          error.message,
+          interactionId,
+        ],
       );
     } catch (dbError) {
-      console.error("Failed to update /status error log:", dbError);
+      console.error(
+        "Failed to update /status error log:",
+        dbError,
+      );
     }
   }
 }
@@ -422,13 +478,22 @@ async function processStatus({
 
 async function processReport(
   interaction,
-  { interactionId, guildId, channelId, userId, username, commandText },
+  {
+    interactionId,
+    guildId,
+    channelId,
+    userId,
+    username,
+    commandText,
+  },
 ) {
   let serverId = null;
   let aiResult = null;
 
   try {
-    console.log("Starting background /report processing...");
+    console.log(
+      "Starting background /report processing...",
+    );
 
     // ------------------------------------------------
     // Find/create server
@@ -436,7 +501,9 @@ async function processReport(
 
     serverId = await getOrCreateServer({
       guildId,
-      guildName: interaction.guild?.name || "Discord Server",
+      guildName:
+        interaction.guild?.name ||
+        "Discord Server",
       channelId,
     });
 
@@ -460,7 +527,9 @@ async function processReport(
     // ------------------------------------------------
 
     if (!saved) {
-      console.log("Skipping duplicate /report interaction.");
+      console.log(
+        "Skipping duplicate /report interaction.",
+      );
 
       return;
     }
@@ -493,17 +562,20 @@ async function processReport(
       );
 
       if (configResult.rows.length > 0) {
-        enabled = configResult.rows[0].enabled;
+        enabled =
+          configResult.rows[0].enabled;
 
-        useAI = configResult.rows[0].use_ai;
+        useAI =
+          configResult.rows[0].use_ai;
 
-        mirrorEnabled = configResult.rows[0].mirror_enabled;
+        mirrorEnabled =
+          configResult.rows[0].mirror_enabled;
       }
     }
 
-    // ------------------------------------------------
+    // ==================================================
     // Check whether /report is enabled
-    // ------------------------------------------------
+    // ==================================================
 
     if (!enabled) {
       await pool.query(
@@ -515,76 +587,92 @@ async function processReport(
           processed_at = CURRENT_TIMESTAMP
         WHERE interaction_id = $3
         `,
-        ["failed", "Report command is disabled", interactionId],
+        [
+          "failed",
+          "Report command is disabled",
+          interactionId,
+        ],
       );
 
-      const followUpResult = await sendFollowUp(
-        env.discordApplicationId,
-        interaction.token,
-        {
-          content: responseText,
-        },
-      );
+      // The command is disabled, so send a simple
+      // follow-up message to Discord.
+      try {
+        const followUpResult =
+          await sendFollowUp(
+            env.discordApplicationId,
+            interaction.token,
+            {
+              content:
+                "The /report command is currently disabled.",
+            },
+          );
 
-      if (followUpResult?.success) {
-        console.log("Report follow-up sent successfully.");
-      } else {
+        if (followUpResult?.success) {
+          console.log(
+            "Disabled command message sent successfully.",
+          );
+        } else {
+          console.error(
+            "Could not send disabled command message to Discord.",
+          );
+        }
+      } catch (followUpError) {
         console.error(
-          "Report was processed, but Discord follow-up could not be delivered.",
-        );
-
-        await pool.query(
-          `
-    UPDATE command_logs
-    SET
-      action_taken = $1,
-      error_message = $2
-    WHERE interaction_id = $3
-    `,
-          [
-            "Report processed, but Discord response delivery failed",
-            followUpResult?.error || "Discord follow-up failed",
-            interactionId,
-          ],
+          "Failed to send disabled command message:",
+          followUpError,
         );
       }
 
       return;
     }
 
-    // ------------------------------------------------
+    // ==================================================
     // Gemini AI analysis
-    // ------------------------------------------------
+    // ==================================================
 
     if (useAI && commandText) {
       try {
-        console.log("Sending report to Gemini...");
+        console.log(
+          "Sending report to Gemini...",
+        );
 
-        aiResult = await analyzeReport(commandText);
+        aiResult =
+          await analyzeReport(commandText);
 
-        console.log("Gemini analysis completed.");
+        console.log(
+          "Gemini analysis completed.",
+        );
       } catch (error) {
-        console.error("Gemini failed:", error);
+        console.error(
+          "Gemini failed:",
+          error,
+        );
 
+        // Continue processing even if AI fails.
         aiResult = {
-          summary: "AI analysis unavailable.",
+          summary:
+            "AI analysis unavailable.",
           tag: "other",
         };
       }
     }
 
-    // ------------------------------------------------
+    // ==================================================
     // Prepare result
-    // ------------------------------------------------
+    // ==================================================
 
     const summary =
-      aiResult?.summary || commandText || "No report text provided.";
+      aiResult?.summary ||
+      commandText ||
+      "No report text provided.";
 
-    const tag = aiResult?.tag || "other";
+    const tag =
+      aiResult?.tag ||
+      "other";
 
-    // ------------------------------------------------
+    // ==================================================
     // Update database
-    // ------------------------------------------------
+    // ==================================================
 
     await pool.query(
       `
@@ -606,37 +694,94 @@ async function processReport(
       ],
     );
 
-    // ------------------------------------------------
+    // ==================================================
     // Discord follow-up
-    // ------------------------------------------------
+    // ==================================================
 
     const responseText =
       `**Report received**\n\n` +
       `**Summary:** ${summary}\n` +
       `**Category:** ${tag}`;
 
-    await sendFollowUp(env.discordApplicationId, interaction.token, {
-      content: responseText,
-    });
+    try {
+      const followUpResult =
+        await sendFollowUp(
+          env.discordApplicationId,
+          interaction.token,
+          {
+            content: responseText,
+          },
+        );
 
-    console.log("Report follow-up sent successfully.");
+      if (followUpResult?.success) {
+        console.log(
+          "Report follow-up sent successfully.",
+        );
+      } else {
+        console.error(
+          "Report was processed, but Discord follow-up could not be delivered.",
+        );
 
-    // ------------------------------------------------
+        await pool.query(
+          `
+          UPDATE command_logs
+          SET
+            action_taken = $1,
+            error_message = $2
+          WHERE interaction_id = $3
+          `,
+          [
+            "Report processed, but Discord response delivery failed",
+            followUpResult?.error ||
+              "Discord follow-up failed",
+            interactionId,
+          ],
+        );
+      }
+    } catch (followUpError) {
+      console.error(
+        "Discord follow-up failed:",
+        followUpError,
+      );
+
+      // IMPORTANT:
+      // The report itself is already processed.
+      // Do NOT change status to failed.
+      await pool.query(
+        `
+        UPDATE command_logs
+        SET
+          action_taken = $1,
+          error_message = $2
+        WHERE interaction_id = $3
+        `,
+        [
+          "Report processed, but Discord response delivery failed",
+          followUpError.message,
+          interactionId,
+        ],
+      );
+    }
+
+    // ==================================================
     // Mirror notification
-    // ------------------------------------------------
+    // ==================================================
 
     if (mirrorEnabled && serverId) {
-      const serverResult = await pool.query(
-        `
+      const serverResult =
+        await pool.query(
+          `
           SELECT mirror_channel_id
           FROM servers
           WHERE id = $1
           LIMIT 1
           `,
-        [serverId],
-      );
+          [serverId],
+        );
 
-      const mirrorChannel = serverResult.rows[0]?.mirror_channel_id;
+      const mirrorChannel =
+        serverResult.rows[0]
+          ?.mirror_channel_id;
 
       if (mirrorChannel) {
         const mirrorText =
@@ -646,12 +791,22 @@ async function processReport(
           `**Category:** ${tag}`;
 
         try {
-          await sendChannelMessage(mirrorChannel, mirrorText);
+          await sendChannelMessage(
+            mirrorChannel,
+            mirrorText,
+          );
 
-          console.log("Mirror notification sent successfully.");
+          console.log(
+            "Mirror notification sent successfully.",
+          );
         } catch (error) {
-          console.error("Mirror notification failed:", error);
+          console.error(
+            "Mirror notification failed:",
+            error,
+          );
 
+          // Keep the report itself processed.
+          // Only record the mirror delivery failure.
           await pool.query(
             `
             UPDATE command_logs
@@ -670,12 +825,19 @@ async function processReport(
       }
     }
 
-    console.log("/report background processing completed.");
+    console.log(
+      "/report background processing completed.",
+    );
   } catch (error) {
-    console.error("processReport error:", error);
+    console.error(
+      "processReport error:",
+      error,
+    );
 
     // ------------------------------------------------
-    // Mark report as failed
+    // Mark report as failed ONLY if the actual
+    // processing/database workflow failed.
+    // Discord delivery failures are handled above.
     // ------------------------------------------------
 
     try {
@@ -688,22 +850,49 @@ async function processReport(
           processed_at = CURRENT_TIMESTAMP
         WHERE interaction_id = $3
         `,
-        ["failed", error.message, interactionId],
+        [
+          "failed",
+          error.message,
+          interactionId,
+        ],
       );
     } catch (dbError) {
-      console.error("Failed to update report error log:", dbError);
+      console.error(
+        "Failed to update report error log:",
+        dbError,
+      );
     }
 
     // ------------------------------------------------
-    // Send error follow-up
+    // Try to notify Discord about an actual
+    // processing failure.
     // ------------------------------------------------
 
     try {
-      await sendFollowUp(env.discordApplicationId, interaction.token, {
-        content: "Something went wrong while processing your report.",
-      });
+      const followUpResult =
+        await sendFollowUp(
+          env.discordApplicationId,
+          interaction.token,
+          {
+            content:
+              "Something went wrong while processing your report.",
+          },
+        );
+
+      if (followUpResult?.success) {
+        console.log(
+          "Error follow-up sent successfully.",
+        );
+      } else {
+        console.error(
+          "Could not send error follow-up to Discord.",
+        );
+      }
     } catch (followUpError) {
-      console.error("Failed to send error follow-up:", followUpError);
+      console.error(
+        "Failed to send error follow-up:",
+        followUpError,
+      );
     }
   }
 }
