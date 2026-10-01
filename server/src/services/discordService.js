@@ -95,69 +95,35 @@ export async function sendFollowUp(
   );
 
   if (response.ok) {
-    return response;
+    return {
+      success: true,
+      response,
+    };
   }
 
   const text = await response.text();
 
+  console.error(
+    "Discord follow-up failed:",
+    response.status
+  );
+
+  console.error(
+    "Discord follow-up response body:",
+    text.slice(0, 1000)
+  );
+
   if (response.status === 429) {
-    let retryAfterSeconds = 2;
-
-    try {
-      const data = JSON.parse(text);
-
-      if (typeof data.retry_after === "number") {
-        retryAfterSeconds = data.retry_after;
-      }
-    } catch {
-      const headerValue =
-        response.headers.get("Retry-After");
-
-      const parsedHeader =
-        Number(headerValue);
-
-      if (Number.isFinite(parsedHeader)) {
-        retryAfterSeconds = parsedHeader;
-      }
-    }
-
-    // Never keep a Discord interaction waiting for hours.
-    const waitSeconds = Math.min(
-      Math.max(retryAfterSeconds, 1),
-      5
+    console.error(
+      "Discord/Cloudflare rate limit detected. Not retrying automatically."
     );
 
-    console.log(
-      `Discord rate limited follow-up. Waiting ${waitSeconds} seconds before one retry.`
-    );
-
-    await new Promise((resolve) =>
-      setTimeout(resolve, waitSeconds * 1000)
-    );
-
-    const retryResponse = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    console.log(
-      "Discord follow-up retry response status:",
-      retryResponse.status
-    );
-
-    if (retryResponse.ok) {
-      return retryResponse;
-    }
-
-    const retryText =
-      await retryResponse.text();
-
-    throw new Error(
-      `Discord follow-up retry failed ${retryResponse.status}: ${retryText}`
-    );
+    return {
+      success: false,
+      rateLimited: true,
+      status: 429,
+      error: "Discord API rate limited the follow-up request.",
+    };
   }
 
   throw new Error(
