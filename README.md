@@ -1,4 +1,7 @@
 # Discord Slash-Command Bot
+## 🚀 Live Demo
+
+[Open Live Application](https://discord-slash-dashboard-client.onrender.com/login)
 
 A full-stack Discord slash-command bot with an admin dashboard for receiving, processing, logging, and monitoring Discord reports.
 
