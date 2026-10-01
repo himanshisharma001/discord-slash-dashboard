@@ -78,16 +78,48 @@ export async function sendFollowUp(
   interactionToken,
   payload
 ) {
-  return fetch(
-    `${discordApi}/webhooks/${applicationId}/${interactionToken}`,
-    {
+  const url =
+    `${discordApi}/webhooks/${applicationId}/${interactionToken}`;
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+    });
+
+    console.log(
+      "Discord follow-up response status:",
+      response.status
+    );
+
+    if (response.ok) {
+      return response;
     }
-  );
+
+    const text = await response.text();
+
+    if (response.status === 429 && attempt === 1) {
+      const retryAfter =
+        Number(response.headers.get("Retry-After")) || 2;
+
+      console.log(
+        `Discord rate limited follow-up. Retrying after ${retryAfter} seconds...`
+      );
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, retryAfter * 1000)
+      );
+
+      continue;
+    }
+
+    throw new Error(
+      `Discord follow-up error ${response.status}: ${text}`
+    );
+  }
 }
 
 export async function sendChannelMessage(channelId, content) {
